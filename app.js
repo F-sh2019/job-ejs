@@ -1,5 +1,8 @@
 const express = require("express");
 require("express-async-errors");
+const cookieParser = require("cookie-parser");
+const csrfMiddleware = require("./middleware/csrf");
+
 
 const app = express();
 
@@ -9,13 +12,7 @@ app.use(require("body-parser").urlencoded({ extended: true }));
 
 require("dotenv").config(); // to load the .env file into the process.env object
 const session = require("express-session");
-// app.use(
-//   session({
-//     secret: process.env.SESSION_SECRET,
-//     resave: false,
-//     saveUninitialized: true,
-//   })
-// );
+
 const MongoDBStore = require("connect-mongodb-session")(session);
 const url = process.env.MONGO_URI;
 
@@ -58,15 +55,40 @@ passportInit();
 app.use(passport.initialize());
 app.use(passport.session());
 
-
-
-
-
-
-
 const secretWordRouter = require("./routes/secretWord");
 const auth = require("./middleware/auth");
 app.use("/secretWord", auth, secretWordRouter);
+
+
+app.use(cookieParser("syzygy")); // Signed cookies for security
+app.use(express.json()); // Ensure JSON body parsing
+
+
+
+
+
+
+const csrfRoutes = require("./routes/csrfRoutes"); 
+app.use(csrfRoutes);
+
+
+
+let csrf_development_mode =  app.get("env") !== "production";
+
+if (app.get("env") === "production") {
+ 
+  app.set("trust proxy", 1); // trust first proxy
+  sessionParms.cookie.secure = true; // serve secure cookies
+}
+app.use(csrfMiddleware({ development_mode: csrf_development_mode }));
+
+
+
+
+//app.use("/jobs", auth, jobs);
+
+
+
   // app.post("/secretWord", (req, res) => {
   //   req.session.secretWord = req.body.secretWord;
   //   res.redirect("/secretWord");
