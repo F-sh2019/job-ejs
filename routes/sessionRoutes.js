@@ -1,6 +1,7 @@
 const express = require("express");
 const passport = require("passport");
 const router = express.Router();
+const csrf= require('host-csrf');
 
 const {
   logonShow,
@@ -18,7 +19,11 @@ router
       successRedirect: "/",
       failureRedirect: "/sessions/logon",
       failureFlash: true,
-    })
+    }),
+		(req, res) => {
+			csrf.refresh(req, res);
+			res.redirect('/');
+		}
    
   );
 router.route("/logoff").post(logoff);
