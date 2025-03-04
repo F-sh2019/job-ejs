@@ -88,6 +88,19 @@ app.use((req, res, next) => {
 
 
 
+
+app.use((req, res, next) => {
+  if (req.path == "/multiply") {
+    res.set("Content-Type", "application/json");
+  } else {
+    res.set("Content-Type", "text/html");
+  }
+  next();
+});
+
+
+
+
 // Routes
 app.get("/", (req, res) => {
   res.render("index");
@@ -116,13 +129,35 @@ app.use((err, req, res, next) => {
 });
 
 // Start Server
+// const port = process.env.PORT || 3000;
+// const start = async () => {
+//   try {
+//     await require("./db/connect")(process.env.MONGO_URI);
+//     app.listen(port, () => console.log(`Server is listening on port ${port}...`));
+//   } catch (error) {
+//     console.error(error);
+//   }
+// };
+// start();
+
+
 const port = process.env.PORT || 3000;
-const start = async () => {
+const start = () => {
   try {
-    await require("./db/connect")(process.env.MONGO_URI);
-    app.listen(port, () => console.log(`Server is listening on port ${port}...`));
+    let mongoURL = process.env.MONGO_URI;
+    if (process.env.NODE_ENV == "test") {
+      mongoURL = process.env.MONGO_URI_TEST;
+    }
+   
+    require("./db/connect")(mongoURL);
+    return app.listen(port, () =>
+      console.log(`Server is listening on port ${port}...`),
+    );
   } catch (error) {
-    console.error(error);
+    console.log(error);
   }
 };
-start();
+
+const server = start();
+
+module.exports = { app, server };
