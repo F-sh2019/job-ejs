@@ -1,79 +1,121 @@
-const Job = require('../models/Job')
-const { StatusCodes } = require('http-status-codes')
-const { BadRequestError, NotFoundError } = require('../errors')
 
-const getAllJobs = async (req, res) => {
-  console.log("getAllJobs")
-  const jobs = await Job.find({ createdBy: req.user.userId }).sort('createdAt')
-  res.status(StatusCodes.OK).json({ jobs, count: jobs.length })
-}
-const getJob = async (req, res) => {
-  const {
-    user: { userId },
-    params: { id: jobId },
-  } = req
+ 
+ const { Job, validStatuses } = require('../models/Job');
+ const { StatusCodes } = require('http-status-codes')
+ const { BadRequestError, NotFoundError } = require('../errors/index')
 
-  const job = await Job.findOne({
-    _id: jobId,
-    createdBy: userId,
-  })
-  if (!job) {
-    throw new NotFoundError(`No job with id ${jobId}`)
-  }
-  res.status(StatusCodes.OK).json({ job })
-}
+ const jobShowAll = async (req, res) => {
+	const jobs = await Job.find({ createdBy: req.user?._id }).sort('createdAt');
 
-const createJob = async (req, res) => {
-//    console.log("create job")
- //   console.log(req.user.userId)
-  req.body.createdBy = req.user.userId
-  const job = await Job.create(req.body)
-  //console.log(job)
-  res.status(StatusCodes.CREATED).json({ job })
+	res.render('jobs', { jobs });
+};
 
-}
+const jobShowAllError = async (req, res) => {
+	const jobs = await Job.find({ createdBy: req.user?._id }).sort('createdAt');
+	res.render('jobs', { jobs, errors: req.flash('error') });
+};
 
-const updateJob = async (req, res) => {
-  const {
-    body: { company, position },
-    user: { userId },
-    params: { id: jobId },
-  } = req
+ const jobShow = async (req, res) => {
+    
+	const job = await Job.findOne({
+		createdBy: req.user?._id,
+		_id: req.params.id
+	});
 
-  if (company === '' || position === '') {
-    throw new BadRequestError('Company or Position fields cannot be empty')
-  }
-  const job = await Job.findByIdAndUpdate(
-    { _id: jobId, createdBy: userId },
-    req.body,
-    { new: true, runValidators: true }
-  )
-  if (!job) {
-    throw new NotFoundError(`No job with id ${jobId}`)
-  }
-  res.status(StatusCodes.OK).json({ job })
-}
+	if (!job) {
+		req.flash('error', 'Job not found.');
+		jobShowAllError();
+		return;
+	}
 
-const deleteJob = async (req, res) => {
-  const {
-    user: { userId },
-    params: { id: jobId },
-  } = req
+	res.render('job', { job });
+   // res.render('job', { job, validStatuses, _csrf: req.csrfToken() })
+    //res.render("job", { job: null, validStatuses, _csrf: req.csrfToken() });
+};
 
-  const job = await Job.findByIdAndRemove({
-    _id: jobId,
-    createdBy: userId,
-  })
-  if (!job) {
-    throw new NotFoundError(`No job with id ${jobId}`)
-  }
-  res.status(StatusCodes.OK).json({ msg: "The entry was deleted." });
-}
+const jobShowError = async (req, res) => {
+	const job = await Job.findOne({
+		createdBy: req.user?._id,
+		_id: req.params.id
+	});
+
+	if (!job) {
+		req.flash('error', 'Job not found.');
+		jobShowAllError();
+		return;
+	}
+
+	res.render('job', { job, errors: req.flash('error') });
+};
+
+ const jobCreate = async (req, res) => {
+	const newJob = { ...req.body };
+	newJob.createdBy = req.user._id;
+	const job = await Job.create(newJob);
+	if (!job) {
+		req.flash('error', 'Job creation failed.');
+		jobShowCreateError();
+		return;
+	}
+
+	jobShowAll(req, res);
+};
+
+ const jobUpdate = async (req, res) => {
+	const { company, position, status } = req.body;
+	if (company === '' || position === '' || status === '') {
+		req.flash('error', 'Invalid, empty field(s) provided.');
+		jobShowError();
+		return;
+	}
+
+	const job = await Job.findOneAndUpdate(
+		{
+			createdBy: req.user?._id,
+			_id: req.params.id
+		},
+		{ company, position, status },
+		{ new: true, runValidators: true }
+	);
+
+	if (!job) {
+		req.flash('error', 'Job not found.');
+		jobShowAllError();
+		return;
+	}
+
+	jobShowAll(req, res);
+};
+
+ const jobDelete = async (req, res) => {
+	const job = await Job.findOneAndDelete({
+		createdBy: req.user?._id,
+		_id: req.params.id
+	});
+
+	if (!job) {
+		req.flash('error', 'Job not found. You may have sent multiple requests.');
+		jobShowAllError();
+		return;
+	}
+
+	jobShowAll(req, res);
+};
+
+ const jobShowCreate = (req, res) => {
+	res.render('job', { job: null });
+};
+
+const jobShowCreateError = (req, res) => {
+	res.render('job', { job: null, errors: req.flash('error') });
+};
 
 module.exports = {
-  createJob,
-  deleteJob,
-  getAllJobs,
-  updateJob,
-  getJob,
+    
+    jobShowAll,
+    jobShow,
+  jobCreate,
+  jobUpdate,
+  jobDelete,
+  jobShowCreate,
 }
